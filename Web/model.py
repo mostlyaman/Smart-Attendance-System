@@ -2,7 +2,7 @@ import pickle
 import face_recognition
 import numpy as np
 
-def face_search(image, tolerance=0.6):
+def face_search(image, tolerance=0.5):
     # Load pickle file
     f = pickle.load(open('pickles/sample.p', 'rb'))
     known_faces, known_names = f
@@ -11,7 +11,7 @@ def face_search(image, tolerance=0.6):
 
     # Detect Faces
     face_locations = face_recognition.face_locations(image)
-    face_encodings = face_recognition.face_encodings(image, face_locations)
+    face_encodings = face_recognition.face_encodings(image, face_locations,num_jitters=5)
 
     for face_encoding in face_encodings:
         matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance)
