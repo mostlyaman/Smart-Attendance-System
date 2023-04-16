@@ -10,10 +10,14 @@ import os
 
 dotenv.load_dotenv(os.path.join(os.getcwd(), '.env'))
 db_name = os.getenv('DB_NAME')
+session_secret_key = os.getenv('SECRET_KEY')
+
 
 import json
 
 app = Flask(__name__)
+app.secret_key = session_secret_key
+
 
 @app.route('/api/v1/test', methods=['GET'])
 def test_server():

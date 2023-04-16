@@ -43,7 +43,9 @@ def run_query(query, api='', data=''):
     if status == 'OK':
         try:
             cursor.execute(query)
-            return list(cursor), 200
+            res = list(cursor)
+            connectUsers.commit()
+            return res, 200
         except dbError as err:
             cursor.execute(f'insert into errors(api, params, error) values({api}, {str(data)}, {str(err)})')
             return json.dumps({"status":"error", "message": "Something went wrong.", "error": f"{str(err)}"}), 500
