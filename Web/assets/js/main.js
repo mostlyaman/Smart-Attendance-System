@@ -14,7 +14,7 @@ async function login(event) {
     })
 
     if (res.status == 200) {
-        alert("Login Successful")
+        window.location.href = '/courses.html'
     } else {
         res = await res.json()
         document.getElementsByClassName('error-message')[0].innerHTML = res.message
@@ -37,7 +37,7 @@ async function signup(event) {
     })
 
     if (res.status == 200) {
-        alert("Account Creation Successful")
+        window.location.href = '/courses.html'
     } else {
         res = await res.json()
         document.getElementsByClassName('error-message')[0].innerHTML = res.message

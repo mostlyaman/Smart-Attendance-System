@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="js/authenticated.js"></script>
+    <link rel="stylesheet" href="css/header.css">
+    <title>Document</title>
+</head>
+
+<body>
+
+    <header class="site-header">
+        <div class="wrapper site-header__wrapper">
+            <a href="#" class="brand">Smart Attendance Portal</a>
+            <nav class="nav">
+                <div class="nav__toggle" aria-expanded="false" type="button"
+                    style="background-color: #a7e5fc; padding:5px 10px;border-radius: 5px;">
+                    menu
+                </div>
+                <ul class="nav__wrapper">
+                    <li class="nav__item"><a href="#">Profile</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <script src="js/RDataTB.js" defer></script>
+    <script src="js/header.js"></script>
+    <script>
+
+        // fetch Data
+        let attendance = await fetch('/api/v1/courses', {
+            method: 'GET',
+        })
+    </script>
+
+
+</body>
+
+</html>

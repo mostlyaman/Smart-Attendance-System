@@ -48,8 +48,25 @@ def run_query(query, api='', data=''):
             return res, 200
         except dbError as err:
             cursor.execute(f'insert into errors(api, params, error) values({api}, {str(data)}, {str(err)})')
+            connectUsers.commit()
             return json.dumps({"status":"error", "message": "Something went wrong.", "error": f"{str(err)}"}), 500
             
     else:
         return cursor, 500
+
+
+def create_attendance_table(user_name, course_name):
+    table_name = "att_"
+    for i in user_name:
+        if i.isalpha():
+            table_name += i
+    
+    table_name += "_"
+
+    for i in course_name:
+        if i.isalpha():
+            table_name += i
+    
+    query = f'create table if not exists {table_name}(id int PRIMARY_KEY AUTO_INCREMENT, att_datetime datetime NOT NULL, user int NOT NULL, foreign key (user) references users(id))'
+    res, code = run_query(query)
     
