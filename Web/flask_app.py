@@ -4,9 +4,11 @@ from model import face_search
 import cv2
 import numpy as np
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils import run_query
+from utils import run_query, create_attendance_table, encode_face
 import dotenv
 import os
+import sys
+import traceback
 
 dotenv.load_dotenv(os.path.join(os.getcwd(), '.env'))
 db_name = os.getenv('DB_NAME')
@@ -34,7 +36,7 @@ def face_recognition():
         else:
             return json.dumps({"status":"error", "message": "No Image Selected."}), 400
     except Exception as e:
-        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e)}), 500
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
 
 
 @app.route('/api/v1/login', methods=['POST'])
@@ -43,6 +45,7 @@ def login():
         data = request.get_json()
         email = data['email']
         password = data['password']
+        is_instructor = data['is_instructor']
 
         query = f'select email, password, name, id from {db_name}.users where email="{email}"'
         res, code = run_query(query)
@@ -56,15 +59,22 @@ def login():
                 session["email"] = email
                 session["name"] = res[0][2]
                 session["user_id"] = res[0][3]
+                session["is_instructor"] = is_instructor
                 return json.dumps({"status": "ok"}), 200
             
             return json.dumps({"status":"error", "message":"Wrong Password."}), 400
 
     except Exception as e:
-        return json.dumps({"status":"error", "message":"Something went wrong.", "error": e}), 500
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": e, "traceback":traceback.format_exc()}), 500
 
 
-
+@app.route('/api/v1/logout', methods=['GET'])
+def logout():
+    try:
+        session.clear()
+        return json.dumps({"status":"ok"}), 200
+    except Exception as e:
+        return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
 
 @app.route('/api/v1/signup', methods=['POST'])
 def signup():
@@ -73,6 +83,7 @@ def signup():
         email = data['email']
         password = generate_password_hash(data['password'])
         name = data['name']
+        is_instructor = data["is_instructor"]
 
         query = f'select email from {db_name}.users where email="{email}"'
         res, code = run_query(query)
@@ -95,58 +106,133 @@ def signup():
         session["name"] = name
         session["email"] = email
         session["user_id"] = res[0][0] 
+        session["is_instructor"] = is_instructor
         return json.dumps({"status": "ok"}), 200
     
     except Exception as e:
-        return json.dumps({"status":"error", "error": str(e)}), 500
+        return json.dumps({"status":"error", "error": str(e), "traceback":traceback.format_exc()}), 500
 
 
 @app.route('/api/v1/logged_user', methods=['GET'])
 def get_logged_user():
-    if "name" in session and "email" in session:
-        return json.dumps({"status":"ok"}), 200
+    if "name" in session and "email" in session and "is_instructor" in session:
+        return json.dumps({"status":"ok", "is_instructor": session["is_instructor"]}), 200
     else:
         return json.dumps({"status":"error"}), 400
+
+@app.route('/api/v1/switch', methods=['GET'])
+def switch():
+    try:
+        if "user_id" in session:
+            session["is_instructor"] = not session["is_instructor"]
+            return json.dumps({"status":"ok"}), 200
+        else:
+            return json.dumps({"status":"error", "message":"Please Login again."}), 400
+    except Exception as e:
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error":str(e), "traceback":traceback.format_exc()}), 500
 
 
 @app.route('/api/v1/courses', methods=['GET', 'POST'])
 def courses():
-    if not session["user_id"]:
+    if "user_id" not in  session:
         return json.dumps({"status":"error", "message": "Please Login again."}), 400
     
     try:
-        if request.method == 'GET':
-            query = f'select id, code, name from courses where instructor={session["user_id"]}'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
+        if session["is_instructor"]:
+            if request.method == 'GET':
+                query = f'select id, code, name, table_name from {db_name}.courses where instructor={session["user_id"]}'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                
+                for i in range(len(res)):
+                    query = f'select count(user) from {db_name}.{res[i][3]} where att_datetime=null'
+                    res1, code = run_query(query)
+                    if code == 200:
+                        res[i] = res[i] + res1[0] 
+                    else:
+                        res[i] = res[i] + ("-",)
+                    
+                    query = f'select max(att_datetime) from {db_name}.{res[i][3]}'
+                    res2, code = run_query(query)
+                    if code == 200:
+                        res[i] = res[i] + res2[0]
+                    else:
+                        res[i] = res[i] + ("-",)
+                return json.dumps({"status":"ok", "result": res, "name":session['name'], "is_instructor": session["is_instructor"]}), 200
             
-            return json.dumps({"status":"ok", "result": res}), 200
+            elif request.method == 'POST':
+                data = request.get_json()
+                code1 = data['code'].upper()
+                name = data['name']
+                instructor = session['user_id']
+                res, code = create_attendance_table(session['name'], code1)
+                if code != 200:
+                    return res, code
+                
+                query = f'insert into {db_name}.courses(code, name, instructor, table_name) values("{code1}", "{name}", {instructor}, "{res}")'
+                
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                
+                query = f'select id, name, code, instructor from {db_name}.courses where id=LAST_INSERT_ID()'
+                print(3, file=sys.stderr)
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                
+                res = {
+                    "id":res[0][0],
+                    "name":res[0][1],
+                    "code":res[0][2],
+                    "instructor":res[0][3]
+                }
+                
+                return json.dumps({"status":"ok", "is_instructor":True, "result": res, "name":session["name"]}), 200
         
-        elif request.method == 'POST':
-            data = request.get_json()
-            code = data['code']
-            name = data['name']
-            instructor = session['user_id']
-            query = f'insert into courses(code, name, instructor) values("{code}", "{name}", {instructor})'
-            
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
-            
-            query = f'select id, name, code, instructor from courses where id=LAST_INSERT_ID()'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
-            
-            res = {
-                "id":res[0],
-                "name":res[1],
-                "code":res[2],
-                "instructor":res[3]
-            }
-            
-            return json.dumps({"status":"ok", "result": res}), 200
+        else:
+            if request.method == 'GET':
+                # Get all courses
+                query = f'select courses.id, CONCAT("[", courses.code, "] - ", courses.name, " by " , users.name) from {db_name}.courses left join {db_name}.users on courses.instructor = users.id'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                student_courses = res
+                query = 'show tables'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                
+                out = []
+                for table1 in res:
+                    table = table1[0]
+                    if table[0:3] == 'att':
+                        query = f'select id from {db_name}.{table} where user={session["user_id"]}'
+                        res1, code = run_query(query)
+                        if code != 200:
+                            return res1, code
+                        if(len(res1) > 0):
+                            query = f'select id, code, name, instructor where table_name="{table}"'
+                            res2, code = run_query(query)
+                            if code != 200:
+                                return res2, code
+                            out.append({"id":res2[0][0], "code":res2[0][1], "name":res2[0][2],"instructor":res2[0][3]})
+                
+                return json.dumps({"status":"ok", "result": out, "is_instructor":session["is_instructor"], "name":session["name"], "courses":student_courses}), 200
+
+            elif request.method == 'POST':
+                return json.dumps({"status":"not implemented", "message":"This route has not been implemented. POST /courses"}), 500
+
+    except Exception as e:
+        return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
+
+
+@app.route('/api/v1/course/<int:id>', methods=['GET', 'POST', 'PUT','DELETE'])
+def course(id):
+    try:
+        if request.method == 'GET':
+            pass
         
         elif request.method == 'PUT':
             data = request.get_json()
@@ -154,7 +240,7 @@ def courses():
             code = data['code']
             name = data['name']
             instructor = session['user_id']
-            query = f'update courses set code="{code}", name="{name}" where id={id}'
+            query = f'update {db_name}.courses set code="{code}", name="{name}" where id={id}'
             res, code = run_query(query)
             if code != 200:
                 return res, code
@@ -173,15 +259,25 @@ def courses():
 
     
     except Exception as e:
-        return json.dumps({"status":"error", "error":str(e)}), 500
+        return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
 
 
-@app.route('/api/v1/course/<int:id>', methods=['GET', 'POST', 'PUT','DELETE'])
-def course(id):
+@app.route('/api/v1/upload_image', methods=['POST'])
+def upload_image():
+    if "user_id" not in session:
+        return json.dumps({"status":"error", "message":"Please Login again."}), 400
     try:
-        if request.method == 'GET':
-            pass
+        if 'add-your-image-input' in request.files:
+            image = request.files['add-your-image-input']
+            res, code = encode_face(image, session["user_id"])
+            if code != 200:
+                return res, code
+            
+            return json.dumps({"status":"ok", "message":"Your profile image has been updated."}), 200
 
-    
+        else:
+            return json.dumps({"status":"error", "message": "No Image Selected."}), 400
+
     except Exception as e:
-        return json.dumps({"status":"error", "error":str(e)}), 500
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
+

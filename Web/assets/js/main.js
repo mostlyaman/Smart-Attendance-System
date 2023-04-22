@@ -4,10 +4,12 @@ async function login(event) {
 
     const email = document.getElementsByName('email')[0].value
     const password = document.getElementsByName('password')[0].value
+    const is_instructor = document.querySelectorAll('#choice-btn-container>div')[0].style.color == 'black' ? true : false
+
 
     let res = await fetch('/api/v1/login', {
         method: 'POST',
-        body: JSON.stringify({ email: email, password: password }),
+        body: JSON.stringify({ email: email, password: password, is_instructor: is_instructor }),
         headers: {
             'Content-Type': 'application/json'
         }
@@ -27,10 +29,12 @@ async function signup(event) {
     const email = document.getElementsByName('email')[0].value
     const name = document.getElementsByName('name')[0].value
     const password = document.getElementsByName('password')[0].value
+    const is_instructor = document.querySelectorAll('#choice-btn-container>div')[0].style.color == 'black' ? true : false
+
 
     let res = await fetch('/api/v1/signup', {
         method: 'POST',
-        body: JSON.stringify({ email: email, password: password, name: name }),
+        body: JSON.stringify({ email: email, password: password, name: name, is_instructor: is_instructor }),
         headers: {
             'Content-Type': 'application/json'
         }
