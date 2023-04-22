@@ -203,38 +203,74 @@
             if (res.status != 200) {
                 res = await res.json()
                 alert(res.message)
+                console.error(res)
+                return
             }
             data = await res.json()
+            console.log(data)
             if(data.result.length) {
 
                 const table = document.getElementById('courses-table')
-                table.innerHTML = `					
-                    <thead>
-						<tr>
-							<th>id</th>
-							<th name="heading-first">Course Code</th>
-							<th>Course Name</th>
-							<th>Number of Students</th>
-							<th name="heading-last">Last Class</th>
-						</tr>
-					</thead>
-					<tbody id="courses-table-body">
-                    </tbody>`
+                if(data.is_instructor){
+                    table.innerHTML = `					
+                        <thead>
+                            <tr>
+                                <th>id</th>
+                                <th name="heading-first">Course Code</th>
+                                <th>Course Name</th>
+                                <th>Number of Students</th>
+                                <th name="heading-last">Last Class</th>
+                            </tr>
+                        </thead>
+                        <tbody id="courses-table-body">
+                        </tbody>`
+                    
+                    const table_body = document.getElementById('courses-table-body')
+                    let temp = ""
+                    data.result.forEach((item) => {
+                        temp+=`
+                            <tr>
+                                <td>${item[0]}</td>
+                                <td>${item[1]}</td>
+                                <td>${item[2]}</td>
+                                <td>${item[4]}</td>
+                                <td>${item[5] == null ? "No classes yet." : item[5]}</td>
+                            </tr>
+                        `
+                    })
+                    table_body.innerHTML = temp
+
+                } else {
+                    table.innerHTML = `					
+                        <thead>
+                            <tr>
+                                <th>id</th>
+                                <th name="heading-first">Course Code</th>
+                                <th>Course Name</th>
+                                <th>Instructor</th>
+                                <th name="heading-last">Last Class</th>
+                            </tr>
+                        </thead>
+                        <tbody id="courses-table-body">
+                        </tbody>`
+                    
+                    const table_body = document.getElementById('courses-table-body')
+                    let temp = ""
+                    data.result.forEach((item) => {
+                        temp+=`
+                            <tr>
+                                <td>${item.id}</td>
+                                <td>${item.code}</td>
+                                <td>${item.name}</td>
+                                <td>${item.instructor}</td>
+                                <td>${item.latest_class}</td>
+                            </tr>
+                        `
+                    })
+                    table_body.innerHTML = temp
+                    
+                }
                 
-                const table_body = document.getElementById('courses-table-body')
-                let temp = ""
-                data.result.forEach((item) => {
-                    temp+=`
-                        <tr>
-                            <td>${item[0]}</td>
-                            <td>${item[1]}</td>
-                            <td>${item[2]}</td>
-                            <td>${item[4]}</td>
-                            <td>${item[5] == null ? "No classes yet." : item[5]}</td>
-                        </tr>
-                    `
-                })
-                table_body.innerHTML = temp
 
                 let x = new RdataTB('courses-table', {
                     // RenderJSON: data.result,
@@ -307,6 +343,25 @@
 
         async function enroll_new_course() {
             const course_id = document.querySelector('#student-modal > select').value
+            await fetch('/api/v1/courses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({course_id: course_id})
+            })
+                .then(async (res) => {
+                    if(res.status == 200) location.reload()
+                    else {
+                        const temp = await res.json()
+                        console.error(temp)
+                        alert(temp.message)
+                    }
+                })
+                .catch((err) => {
+                    alert("Something went wrong.")
+                    console.error(err)
+                })
         }
 
 

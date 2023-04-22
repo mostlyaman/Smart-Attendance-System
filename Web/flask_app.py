@@ -146,7 +146,7 @@ def courses():
                     return res, code
                 
                 for i in range(len(res)):
-                    query = f'select count(user) from {db_name}.{res[i][3]} where att_datetime=null'
+                    query = f'select count(user) from {db_name}.{res[i][3]} where att_datetime is null'
                     res1, code = run_query(query)
                     if code == 200:
                         res[i] = res[i] + res1[0] 
@@ -193,36 +193,69 @@ def courses():
         
         else:
             if request.method == 'GET':
+
+                query = 'show tables'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                taken_courses = []
+                out = []
+                for table1 in res:
+                    table = table1[0]
+                    if table[0:3] == 'att':
+                        query = f'select user from {db_name}.{table} where user={session["user_id"]}'
+                        res1, code = run_query(query)
+                        if code != 200:
+                            return res1, code
+                        if(len(res1) > 0):
+                            query = f'select max(att_datetime) from {db_name}.{table}'
+                            temp, code = run_query(query)
+                            if code != 200:
+                                return res, code
+                            latest_class = ""
+                            if(len(temp) > 0): 
+                                latest_class = "No classes yet."
+                            else:
+                                latest_class = temp[0][0]
+                            query = f'select courses.id, courses.code, courses.name, users.name from {db_name}.courses left join users on courses.instructor = users.id where courses.table_name="{table}"'
+                            res2, code = run_query(query)
+                            if code != 200:
+                                return res2, code
+                            taken_courses.append(res2[0][0])
+                            out.append({"id":res2[0][0], "code":res2[0][1], "name":res2[0][2],"instructor":res2[0][3], "latest_class":latest_class})
+                
+                
                 # Get all courses
                 query = f'select courses.id, CONCAT("[", courses.code, "] - ", courses.name, " by " , users.name) from {db_name}.courses left join {db_name}.users on courses.instructor = users.id'
                 res, code = run_query(query)
                 if code != 200:
                     return res, code
-                student_courses = res
-                query = 'show tables'
+                student_courses = []
+                for c in res:
+                    if c[0] not in taken_courses:
+                        student_courses.append(c)
+                return json.dumps({"status":"ok", "result": out, "is_instructor":session["is_instructor"], "name":session["name"], "courses":student_courses}), 200
+
+            elif request.method == 'POST':
+                data = request.get_json()
+                course_id = data["course_id"]
+                user_id = session["user_id"]
+                
+                query = f'select table_name from {db_name}.courses where id={course_id}'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+                if len(res) == 0:
+                    return json.dumps({"status":"error", "message":"Course does not exist."}), 400
+                
+                table_name = res[0][0]
+                query = f'insert into {db_name}.{table_name}(att_datetime, user) values(null, {user_id})'
                 res, code = run_query(query)
                 if code != 200:
                     return res, code
                 
-                out = []
-                for table1 in res:
-                    table = table1[0]
-                    if table[0:3] == 'att':
-                        query = f'select id from {db_name}.{table} where user={session["user_id"]}'
-                        res1, code = run_query(query)
-                        if code != 200:
-                            return res1, code
-                        if(len(res1) > 0):
-                            query = f'select id, code, name, instructor where table_name="{table}"'
-                            res2, code = run_query(query)
-                            if code != 200:
-                                return res2, code
-                            out.append({"id":res2[0][0], "code":res2[0][1], "name":res2[0][2],"instructor":res2[0][3]})
-                
-                return json.dumps({"status":"ok", "result": out, "is_instructor":session["is_instructor"], "name":session["name"], "courses":student_courses}), 200
+                return json.dumps({"status":"ok"}), 200
 
-            elif request.method == 'POST':
-                return json.dumps({"status":"not implemented", "message":"This route has not been implemented. POST /courses"}), 500
 
     except Exception as e:
         return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
