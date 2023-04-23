@@ -53,7 +53,8 @@
                             })
                                 .then(async (res) => {
                                     if(res.status == 200){
-                                        alert(JSON.stringify(res))
+                                        // alert(JSON.stringify(res))
+                                        location.reload()
                                     } 
                                         
                                     else {
@@ -154,6 +155,7 @@
                     document.getElementById('welcome').innerText = `[${data.table.code}] - ${data.table.name}`
                     document.getElementById('your-courses').innerText = `Instructor: ${data.table.instructor}`
                     document.getElementById('add-your-image').style.display = !data.is_instructor ? "none" : "block"
+                    document.title = data.table.name + document.title
 
 
                     const table = document.getElementById('courses-table')
@@ -161,6 +163,7 @@
                         if(data.is_instructor) {
                             temp_days = ""
                             data.days.forEach((item) => {temp_days+=`<th>${item}</th>`})
+                            data["last"] = data.days[data.days.length-1]
                             console.log(temp_days, data.days)
                             table.innerHTML = `					
                                 <thead>
@@ -210,6 +213,16 @@
     integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
     crossorigin="anonymous"></script>
 
+    <script>
+        document.querySelectorAll('th').forEach((ref) => {
+            console.log(ref.innerText)
+            if (ref.innerText == data["last"]) {
+                alert(1)
+                ref.style['border-top-right-radius'] = '20px !important' ;
+            }
+        })
+    </script>
+
     <style>
         tbody > tr:hover {
             background-color: #e3e3e3;
@@ -240,9 +253,15 @@
         #courses-table > thead > tr :last-child {
             border-top-right-radius: 20px;
         } 
-        tr > :last-child {
+        tr > :last-childa {
             padding-top: 0px !important;
             padding-bottom: 0px !important;
+        }
+        #P_header {
+            display: none !important;
+        }
+        #A_header{
+            display: none !important;
         }
     </style>
 </body>
