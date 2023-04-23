@@ -220,6 +220,7 @@
                                 <th>Course Name</th>
                                 <th>Number of Students</th>
                                 <th name="heading-last">Last Class</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="courses-table-body">
@@ -235,6 +236,7 @@
                                 <td>${item[2]}</td>
                                 <td>${item[4]}</td>
                                 <td>${item[5] == null ? "No classes yet." : item[5]}</td>
+                                <td><button onclick="open_course(${item[0]} )" class="btn btn-primary btn-small">Open</button></td>
                             </tr>
                         `
                     })
@@ -249,6 +251,7 @@
                                 <th>Course Name</th>
                                 <th>Instructor</th>
                                 <th name="heading-last">Last Class</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="courses-table-body">
@@ -264,6 +267,7 @@
                                 <td>${item.name}</td>
                                 <td>${item.instructor}</td>
                                 <td>${item.latest_class}</td>
+                                <td><button onclick="open_course(${item.id})" class="btn btn-primary btn-small">Open</button></td>
                             </tr>
                         `
                     })
@@ -363,6 +367,23 @@
                     console.error(err)
                 })
         }
+
+        open_course = async (id) => {
+            await fetch(`/api/v1/course/${id}`)
+                .then(async (res) => {
+                    if(res.status == 200) window.location.href = "/course.html"
+                    else {
+                        const temp = await res.json()
+                        console.error(temp)
+                        alert(temp.message)
+                    }
+                })
+                .catch((err) => {
+                    console.error(err)
+                })
+        }
+
+
 
 
     </script>
@@ -480,7 +501,7 @@
         #courses-table > thead > tr :nth-child(2) {
             border-top-left-radius: 20px;
         } 
-        #courses-table > thead > tr :nth-child(5) {
+        #courses-table > thead > tr :nth-child(6) {
             border-top-right-radius: 20px;
         } 
 
@@ -510,7 +531,6 @@
         
 
     </style>
-
 </body>
 
 </html>

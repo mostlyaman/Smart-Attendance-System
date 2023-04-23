@@ -1,5 +1,5 @@
 from flask import Flask
-from flask import request, session
+from flask import request, session, redirect
 from model import face_search
 import cv2
 import numpy as np
@@ -153,7 +153,7 @@ def courses():
                     else:
                         res[i] = res[i] + ("-",)
                     
-                    query = f'select max(att_datetime) from {db_name}.{res[i][3]}'
+                    query = f'select DATE_FORMAT(max(att_datetime), "%Y/%m/%d") from {db_name}.{res[i][3]}'
                     res2, code = run_query(query)
                     if code == 200:
                         res[i] = res[i] + res2[0]
@@ -261,34 +261,96 @@ def courses():
         return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
 
 
-@app.route('/api/v1/course/<int:id>', methods=['GET', 'POST', 'PUT','DELETE'])
-def course(id):
+@app.route('/api/v1/course', methods=['GET'])
+def course_get():
     try:
-        if request.method == 'GET':
-            pass
+        if "course" not in session:
+            return json.dumps({"status":"error", "message": "No Course Selected"}), 400
         
-        elif request.method == 'PUT':
-            data = request.get_json()
-            id = data['id']
-            code = data['code']
-            name = data['name']
-            instructor = session['user_id']
-            query = f'update {db_name}.courses set code="{code}", name="{name}" where id={id}'
+        if session["is_instructor"]:
+            id = session["course"]
+            query = f'select courses.id, courses.code, courses.name, users.name, table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={id}'
             res, code = run_query(query)
             if code != 200:
                 return res, code
-
-            res = {
-                "id":id,
-                "name":name,
-                "code":code,
-                "instructor":instructor
-            }
             
-            return json.dumps({"status":"ok", "result": res}), 200
+            course_id = res[0][0]
+            course_code = res[0][1]
+            course_name = res[0][2]
+            instructor_name = res[0][3]
+            table_name = res[0][4]
+
+            table = {
+                "id" : course_id,
+                "code": course_code,
+                "name": course_name,
+                "instructor": instructor_name,
+            }
+
+            query = f'select DISTINCT users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            
+            students = res
+
+            query = f'select DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d"), users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            
+            result = res
+
+            query = f'select DISTINCT DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d") from {db_name}.{table_name} where att_datetime is not null'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            days = res
+            return json.dumps({"status":"ok", "table":table, "result":result, "students":students, "days":days, "name":session["name"], "is_instructor":session["is_instructor"]}), 200
         
-        elif request.method == 'DELETE':
-            data = request.get_json()
+        else:
+            return json.dumps({"status":"not implemented", "message":"not implemented"}), 500
+
+
+    except Exception as e:
+        return json.dumps({"status":"error", "error":str(e), "traceback":traceback.format_exc()}), 500
+ 
+
+
+@app.route('/api/v1/course/<int:id>', methods=['GET', 'POST', 'PUT','DELETE'])
+def course(id):
+    try:
+        if session["is_instructor"]:
+            if request.method == 'GET':
+                session["course"] = id
+                return json.dumps({"status": "ok"}), 200
+            
+            elif request.method == 'PUT':
+                data = request.get_json()
+                id = data['id']
+                code = data['code']
+                name = data['name']
+                instructor = session['user_id']
+                query = f'update {db_name}.courses set code="{code}", name="{name}" where id={id}'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+
+                res = {
+                    "id":id,
+                    "name":name,
+                    "code":code,
+                    "instructor":instructor
+                }
+                
+                return json.dumps({"status":"ok", "result": res}), 200
+            
+            elif request.method == 'DELETE':
+                data = request.get_json()
+        else:
+            if request.method == 'GET':
+                session["course"] = id
+                return json.dumps({"status": "ok"}), 200
 
     
     except Exception as e:
