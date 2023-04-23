@@ -89,7 +89,7 @@ def generate_table_name(user_name, course_name):
 def encode_face(image, user_id):
     frame = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    enc = face_recognition.face_encodings(frame)[0]
+    enc = face_recognition.face_encodings(frame,num_jitters=3)[0]
     enc = json.dumps(enc.tolist())
 
     query = f'update {db_name}.users set image_data = "{enc}" where id={user_id}'

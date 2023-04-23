@@ -8,7 +8,10 @@ from utils import run_query, create_attendance_table, encode_face
 import dotenv
 import os
 import sys
+from datetime import datetime
 import traceback
+import face_recognition
+
 
 dotenv.load_dotenv(os.path.join(os.getcwd(), '.env'))
 db_name = os.getenv('DB_NAME')
@@ -27,7 +30,7 @@ def test_server():
 
 
 @app.route('/api/v1/face_recognition', methods=['POST'])
-def face_recognition():
+def face_recognition2():
     try:
         if 'image' in request.files:
             image = request.files['image']
@@ -287,19 +290,28 @@ def course_get():
                 "instructor": instructor_name,
             }
 
-            query = f'select DISTINCT users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
+            query = f'select DISTINCT users.id, users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is null'
             res, code = run_query(query)
             if code != 200:
                 return res, code
             
             students = res
 
-            query = f'select DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d"), users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
+            result = {}
+            for student in students:
+                query = f'select DATE_FORMAT(att_datetime, "%Y/%m/%d") from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
+                res, code = run_query(query)
+                if code != 200:  
+                    return res, code
+                
+                result[student[0]] = res
+
+            # query = f'select DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d"), users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
+            # res, code = run_query(query)
+            # if code != 200:
+            #     return res, code
             
-            result = res
+            # result = res
 
             query = f'select DISTINCT DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d") from {db_name}.{table_name} where att_datetime is not null'
             res, code = run_query(query)
@@ -373,6 +385,69 @@ def upload_image():
         else:
             return json.dumps({"status":"error", "message": "No Image Selected."}), 400
 
+    except Exception as e:
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
+
+@app.route("/api/v1/mark_attendance", methods=['POST'])
+def mark_attendance():
+    try:
+        if 'add-your-image-input' in request.files:
+            image = request.files['add-your-image-input']
+            frame = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            id = session["course"]
+            query = f'select table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={id}'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            
+            table_name = res[0][0]
+
+            query = f'select DISTINCT users.id, users.image_data, users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is null'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            
+            students = res
+
+            known_faces = []
+            known_names = []
+            known = []
+
+            for student in students:
+                if student[1] != None:
+                    known_faces.append(np.array(json.loads(student[1])))
+                    # print(known_faces[-1].shape, file=sys.stderr)
+                    known_names.append(student[0])
+                    known.append(student[2])
+            
+            print(known_faces)
+            result = []
+            result2 = []
+            face_locations = face_recognition.face_locations(frame)
+            face_encodings = face_recognition.face_encodings(frame, face_locations,num_jitters=5)
+
+            for face_encoding in face_encodings:
+                matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.5)
+
+                face_distances = face_recognition.face_distance(known_faces, face_encoding)
+                best_match_index = np.argmin(face_distances)
+                if matches[best_match_index]:
+                    name = known_names[best_match_index]
+                    result.append(name)
+                    result2.append(known[best_match_index])
+            
+            for id in result:
+                query = f'insert into {db_name}.{table_name}(att_datetime, user) values("{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id})'
+                res, code = run_query(query)
+                if code != 200:
+                    return res, code
+
+            return json.dumps({"status":"ok", "result":result2}), 200           
+
+        else:
+            return json.dumps({"status":"error", "message": "No Image Selected."}), 400
     except Exception as e:
         return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
 
