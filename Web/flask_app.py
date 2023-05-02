@@ -68,7 +68,7 @@ def login():
             return json.dumps({"status":"error", "message":"Wrong Password."}), 400
 
     except Exception as e:
-        return json.dumps({"status":"error", "message":"Something went wrong.", "error": e, "traceback":traceback.format_exc()}), 500
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
 
 
 @app.route('/api/v1/logout', methods=['GET'])
