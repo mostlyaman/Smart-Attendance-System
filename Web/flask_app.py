@@ -422,7 +422,7 @@ def mark_attendance():
                     known_names.append(student[0])
                     known.append(student[2])
             
-            print(known_faces)
+            # print(known_faces)
             result = []
             result2 = []
             face_locations = face_recognition.face_locations(frame)
