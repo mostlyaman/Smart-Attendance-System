@@ -117,7 +117,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/gh/Rakhmadi/RdataTB@master/dist/index.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/Rakhmadi/RdataTB@master/dist/index.js"></script> -->
+    <script src="js/RDataTB.js" ></script>
 
     <script src="js/header.js"></script>
 
@@ -168,7 +169,8 @@
                             table.innerHTML = `					
                                 <thead>
                                     <tr>
-                                        <th>Student Name</th>
+                                        <th>Student</th>
+                                        <th>Attendance</th>
                                         ${temp_days}
                                     </tr>
                                 </thead>
@@ -180,7 +182,11 @@
                                     temp+=`
                                         <tr>
                                             <td>${item[1]}</td>
-                                            ${data.days.map((it) => `<th>${contains(it[0], data.result[item[0]]) ? "P" : "A" }</th>`)}
+                                            <td>${data.result[item[0]][0]} %</td>
+                                            ${data.days.map((it) => {
+                                                let con = contains(it[0], data.result[item[0]][1])
+                                                return `<td>${con ? "P" : "A" }</td>`
+                                            })}
                                         </tr>
                                     `
                                 })
@@ -193,7 +199,8 @@
                             ShowSearch:true, 
                             ShowSelect:true,
                             ShowPaginate:true,
-                            HideColumn:["id", "P", "A"]
+                            HideColumn:["id", "P", "A"],
+                            SelectionNumber: [50, 100, 200]
                         })
                         document.getElementById('table-container').style.display = 'block'
                     } else {
@@ -214,6 +221,7 @@
     integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
     crossorigin="anonymous"></script>
 
+
     <script>
         document.querySelectorAll('th').forEach((ref) => {
             console.log(ref.innerText)
@@ -225,12 +233,7 @@
     </script>
 
     <style>
-        tbody > tr:hover {
-            background-color: #e3e3e3;
-            cursor: pointer;
-            text-decoration: underline;
-        }
-
+        
         th {
             font-weight: 600;
             font-size: 16px;
@@ -239,14 +242,30 @@
             background-color: #B7EAFB !important;
         }
 
+        #C > tbody > tr > td {
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        #C > tbody > tr:hover {
+            background-color: white !important;
+            text-decoration: none;
+        }
+        
+        tbody > tr:hover {
+            background-color: #e3e3e3;
+            cursor: pointer;
+            text-decoration: underline;
+        }
         td{
-            padding: 20px !important;
+            padding: 10px 20px !important;
             border: 2px rgba(74, 71, 71, 0.1) solid !important;
 
         }
         .Selc {
-            display: none;
+            display: block;
         }
+
 
         #courses-table > thead > tr :nth-child(1) {
             border-top-left-radius: 20px;
@@ -254,16 +273,17 @@
         #courses-table > thead > tr :last-child {
             border-top-right-radius: 20px;
         } 
-        tr > :last-childa {
+        tr > :last-child {
             padding-top: 0px !important;
             padding-bottom: 0px !important;
         }
-        #P_header {
+
+        /* #P_header {
             display: none !important;
         }
         #A_header{
             display: none !important;
-        }
+        } */
     </style>
 </body>
 </html>

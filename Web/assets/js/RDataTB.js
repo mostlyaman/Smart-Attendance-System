@@ -13,7 +13,7 @@ class RdataTB {
         ShowSearch: true,
         ShowSelect: true,
         ShowPaginate: true,
-        SelectionNumber: [5, 10, 20, 50],
+        SelectionNumber: [50, 100, 200, 500],
         HideColumn: [],
         ShowHighlight: false,
         fixedTable: false,
@@ -27,7 +27,7 @@ class RdataTB {
         this.DataTable = [];
         this.DataSorted = [];
         this.DataToRender = [];
-        this.PageSize = 5;
+        this.PageSize = Options.SelectionNumber[0];
         this.Assc = false;
         this.DataSearch = [];
         this.i = 0;

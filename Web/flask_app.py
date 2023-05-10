@@ -297,6 +297,12 @@ def course_get():
             
             students = res
 
+            query = f'select DISTINCT DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d") from {db_name}.{table_name} where att_datetime is not null'
+            res, code = run_query(query)
+            if code != 200:
+                return res, code
+            days = res
+
             result = {}
             for student in students:
                 query = f'select DATE_FORMAT(att_datetime, "%Y/%m/%d") from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
@@ -304,7 +310,12 @@ def course_get():
                 if code != 200:  
                     return res, code
                 
-                result[student[0]] = res
+                query = f'select count(att_datetime) / {len(days)} * 100 from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
+                res2, code = run_query(query)
+                if code != 200:
+                    return res2, code
+                
+                result[student[0]] = [float(res2[0][0]), res]
 
             # query = f'select DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d"), users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
             # res, code = run_query(query)
@@ -313,11 +324,7 @@ def course_get():
             
             # result = res
 
-            query = f'select DISTINCT DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d") from {db_name}.{table_name} where att_datetime is not null'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
-            days = res
+
             return json.dumps({"status":"ok", "table":table, "result":result, "students":students, "days":days, "name":session["name"], "is_instructor":session["is_instructor"]}), 200
         
         else:
