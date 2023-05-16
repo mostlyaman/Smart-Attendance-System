@@ -446,7 +446,7 @@ def mark_attendance():
                     result2.append(known[best_match_index])
             
             for id in result:
-                query = f'insert into {db_name}.{table_name}(att_datetime, user) values("{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id})'
+                query = f'insert into {db_name}.{table_name}(att_datetime, user) select "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id} where not exists (select 1 from {db_name}.{table_name} where user = {id} and att_datetime = "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}")'
                 res, code = run_query(query)
                 if code != 200:
                     return res, code
