@@ -4,13 +4,15 @@ from model import face_search
 import cv2
 import numpy as np
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils import run_query, create_attendance_table, encode_face
+from utils import run_query, create_attendance_table, encode_face, attendance_from_cv2_frame, update_status_file
 import dotenv
 import os
 import sys
 from datetime import datetime
 import traceback
 import face_recognition
+import base64
+import time
 
 
 dotenv.load_dotenv(os.path.join(os.getcwd(), '.env'))
@@ -310,12 +312,12 @@ def course_get():
                 if code != 200:  
                     return res, code
                 
-                query = f'select count(att_datetime) / {len(days)} * 100 from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
+                query = f'select count(DISTINCT att_datetime) / {len(days)} * 100 from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
                 res2, code = run_query(query)
                 if code != 200:
                     return res2, code
-                
-                result[student[0]] = [float(res2[0][0]), res]
+
+                result[student[0]] = [float(res2[0][0] if res2[0][0] is not None else 0), res]
 
             # query = f'select DATE_FORMAT({table_name}.att_datetime, "%Y/%m/%d"), users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null'
             # res, code = run_query(query)
@@ -395,66 +397,69 @@ def upload_image():
     except Exception as e:
         return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
 
+# Mark Attendance by uploading one image through web interface
 @app.route("/api/v1/mark_attendance", methods=['POST'])
 def mark_attendance():
+
     try:
+        course = session["course"]
         if 'add-your-image-input' in request.files:
             image = request.files['add-your-image-input']
             frame = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            id = session["course"]
-            query = f'select table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={id}'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
             
-            table_name = res[0][0]
+            # Save the image
+            status = []
+            file_name = f"{course}-upload-{time.time()}.jpg"
+            cv2.imwrite(f"assets/temp/{file_name}", frame)
 
-            query = f'select DISTINCT users.id, users.image_data, users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is null'
-            res, code = run_query(query)
-            if code != 200:
-                return res, code
-            
-            students = res
+            status.append({"camera":"upload", "image":f"temp/{file_name}", "error":None})
+            update_status_file(course, status)
 
-            known_faces = []
-            known_names = []
-            known = []
-
-            for student in students:
-                if student[1] != None:
-                    known_faces.append(np.array(json.loads(student[1])))
-                    # print(known_faces[-1].shape, file=sys.stderr)
-                    known_names.append(student[0])
-                    known.append(student[2])
-            
-            # print(known_faces)
-            result = []
-            result2 = []
-            face_locations = face_recognition.face_locations(frame)
-            face_encodings = face_recognition.face_encodings(frame, face_locations,num_jitters=5)
-
-            for face_encoding in face_encodings:
-                matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.5)
-
-                face_distances = face_recognition.face_distance(known_faces, face_encoding)
-                best_match_index = np.argmin(face_distances)
-                if matches[best_match_index]:
-                    name = known_names[best_match_index]
-                    result.append(name)
-                    result2.append(known[best_match_index])
-            
-            for id in result:
-                query = f'insert into {db_name}.{table_name}(att_datetime, user) select "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id} where not exists (select 1 from {db_name}.{table_name} where user = {id} and att_datetime = "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}")'
-                res, code = run_query(query)
-                if code != 200:
-                    return res, code
+            result2 = attendance_from_cv2_frame(frame, course)
 
             return json.dumps({"status":"ok", "result":result2}), 200           
 
         else:
             return json.dumps({"status":"error", "message": "No Image Selected."}), 400
     except Exception as e:
+        return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
+
+# Receive images through RPI camera server 
+@app.route('/api/v1/mark_attendance_rpi', methods=['POST'])
+def mark_attendance_rpi():
+    try:
+        data = json.loads(request.data)
+        course = data["course"]
+        del data["course"]
+
+        # Write/Append the incoming data to a JSON file
+        status = []
+        for camera in data.keys():
+            timestamp = time.time()
+            if data[camera]["status"] == 'ok':
+                # Save the image
+                file_name = f"{course}-{camera}-{timestamp}.jpg"
+                try:
+                    decode = base64.b64decode(data[camera]["image"])
+                    buffer = np.frombuffer(decode, np.uint8)
+                    frame = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+                    cv2.imwrite(f"assets/temp/{file_name}", frame)
+                    
+                    attendance_from_cv2_frame(frame, course)
+
+                    status.append({"camera":camera, "image":f"temp/{file_name}", "error": None})
+                
+                except Exception as e:
+                    status.append({"camera":camera, "image":None, "error":str(e), "traceback":traceback.format_exc()})
+            else:
+                status.append({"camera":camera, "image":None, "error":data[camera]["status"]})
+
+        update_status_file(course, status)
+        return json.dumps({"status":"ok"}), 200    
+
+
+    except Exception as e:
+        print(str(e), file=sys.stderr)
         return json.dumps({"status":"error", "message":"Something went wrong.", "error": str(e), "traceback":traceback.format_exc()}), 500
 

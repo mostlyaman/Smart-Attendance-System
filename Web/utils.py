@@ -9,6 +9,8 @@ import traceback
 import cv2
 import face_recognition
 import numpy as np
+import face_recognition
+from datetime import datetime
 
 dotenv.load_dotenv(os.path.join(os.getcwd(), '.env'))
 
@@ -95,3 +97,67 @@ def encode_face(image, user_id):
     query = f'update {db_name}.users set image_data = "{enc}" where id={user_id}'
     res, code = run_query(query)
     return res, code
+
+def attendance_from_cv2_frame(image, course):
+
+    query = f'select table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={course}'
+    res, code = run_query(query)
+    if code != 200:
+        return res, code
+    
+    table_name = res[0][0]
+
+    query = f'select DISTINCT users.id, users.image_data, users.name from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is null'
+    res, code = run_query(query)
+    if code != 200:
+        return res, code
+    
+    students = res
+
+    known_faces = []
+    known_names = []
+    known = []
+
+    for student in students:
+        if student[1] != None:
+            known_faces.append(np.array(json.loads(student[1])))
+            # print(known_faces[-1].shape, file=sys.stderr)
+            known_names.append(student[0])
+            known.append(student[2])
+    
+    # print(known_faces)
+    result = []
+    result2 = []
+    face_locations = face_recognition.face_locations(image)
+    face_encodings = face_recognition.face_encodings(image, face_locations,num_jitters=5)
+
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.5)
+
+        face_distances = face_recognition.face_distance(known_faces, face_encoding)
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_names[best_match_index]
+            result.append(name)
+            result2.append(known[best_match_index])
+    
+    for id in result:
+        query = f'insert into {db_name}.{table_name}(att_datetime, user) select "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id} where not exists (select 1 from {db_name}.{table_name} where user = {id} and att_datetime = "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}")'
+        res, code = run_query(query)
+        if code != 200:
+            return res, code
+    
+    return result2
+
+def update_status_file(course, status):
+    dt = datetime.today().strftime("%Y-%m-%d")
+    json_file = f"assets/temp/status_{course}_{dt}.json"
+
+    if os.path.isfile(json_file):
+        with open(json_file, 'r') as f:
+            data = json.loads(f.read())
+        
+        status.extend(data)
+
+    with open(json_file, 'w') as f:
+        f.write(json.dumps(status))

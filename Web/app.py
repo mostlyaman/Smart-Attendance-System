@@ -7,4 +7,5 @@ import os
 def serve_static_files(path):
     return send_from_directory('assets', path)
 
-app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
