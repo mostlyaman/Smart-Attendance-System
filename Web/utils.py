@@ -98,7 +98,7 @@ def encode_face(image, user_id):
     res, code = run_query(query)
     return res, code
 
-def attendance_from_cv2_frame(image, course):
+def attendance_from_cv2_frame(image, course, file_name):
 
     query = f'select table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={course}'
     res, code = run_query(query)
@@ -131,7 +131,8 @@ def attendance_from_cv2_frame(image, course):
     face_locations = face_recognition.face_locations(image)
     face_encodings = face_recognition.face_encodings(image, face_locations,num_jitters=5)
 
-    for face_encoding in face_encodings:
+    for face_encoding, face_location in zip(face_encodings, face_locations):
+        color = (0, 0, 255)
         matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.5)
 
         face_distances = face_recognition.face_distance(known_faces, face_encoding)
@@ -140,6 +141,13 @@ def attendance_from_cv2_frame(image, course):
             name = known_names[best_match_index]
             result.append(name)
             result2.append(known[best_match_index])
+            color = (255, 0, 0)
+        
+        top, right, bottom, left = face_location
+        cv2.rectangle(image, (left, top), (right, bottom), color, 2)
+    
+    cv2.imwrite(f"assets/temp/{file_name}", image)
+
     
     for id in result:
         query = f'insert into {db_name}.{table_name}(att_datetime, user) select "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}", {id} where not exists (select 1 from {db_name}.{table_name} where user = {id} and att_datetime = "{datetime.today().strftime("%Y-%m-%d %H:%M:%S")}")'

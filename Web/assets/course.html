@@ -251,6 +251,8 @@
     </script>
 
     <script>
+        document.querySelector('#bt-btn').disabled = navigator.bluetooth ? false: true
+
         document.querySelector('#logout').addEventListener('click', async () => {
             await fetch('/api/v1/logout')
                 .then((res) => { if (response.status == 200) window.location.href = '/login.html' })

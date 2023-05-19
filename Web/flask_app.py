@@ -411,12 +411,11 @@ def mark_attendance():
             # Save the image
             status = []
             file_name = f"{course}-upload-{time.time()}.jpg"
-            cv2.imwrite(f"assets/temp/{file_name}", frame)
 
             status.append({"camera":"upload", "image":f"temp/{file_name}", "error":None})
             update_status_file(course, status)
 
-            result2 = attendance_from_cv2_frame(frame, course)
+            result2 = attendance_from_cv2_frame(frame, course, file_name)
 
             return json.dumps({"status":"ok", "result":result2}), 200           
 
@@ -444,9 +443,8 @@ def mark_attendance_rpi():
                     decode = base64.b64decode(data[camera]["image"])
                     buffer = np.frombuffer(decode, np.uint8)
                     frame = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
-                    cv2.imwrite(f"assets/temp/{file_name}", frame)
                     
-                    attendance_from_cv2_frame(frame, course)
+                    attendance_from_cv2_frame(frame, course, file_name)
 
                     status.append({"camera":camera, "image":f"temp/{file_name}", "error": None})
                 
