@@ -312,7 +312,7 @@ def course_get():
                 if code != 200:  
                     return res, code
                 
-                query = f'select count(DISTINCT att_datetime) / {len(days)} * 100 from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
+                query = f'select count(DISTINCT DATE_FORMAT(att_datetime, "%Y/%m/%d")) / {len(days)} * 100 from {db_name}.{table_name} left join {db_name}.users on {table_name}.user = users.id where {table_name}.att_datetime is not null and {table_name}.user={student[0]}'
                 res2, code = run_query(query)
                 if code != 200:
                     return res2, code
