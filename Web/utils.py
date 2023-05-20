@@ -137,14 +137,16 @@ def attendance_from_cv2_frame(image, course, file_name):
 
         face_distances = face_recognition.face_distance(known_faces, face_encoding)
         best_match_index = np.argmin(face_distances)
+        top, right, bottom, left = face_location
         if matches[best_match_index]:
             name = known_names[best_match_index]
+            name2 = known[best_match_index]
             result.append(name)
             result2.append(known[best_match_index])
             color = (255, 0, 0)
-        
-        top, right, bottom, left = face_location
+            cv2.putText(image, name2, (left + 6, bottom - 6), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
         cv2.rectangle(image, (left, top), (right, bottom), color, 2)
+
     
     cv2.imwrite(f"assets/temp/{file_name}", image)
 

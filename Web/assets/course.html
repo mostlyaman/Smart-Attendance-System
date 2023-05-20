@@ -121,7 +121,15 @@
                 </div>
                
                 <div id="student-modal" class="custom-field" style="display: none;">
-               
+                    <div id="bt-container">
+                        <video id="bt-video"></video>
+                        <button type="button" class="btn btn-primary btn-md" id="bt-student-btn" onclick="connectBluetoothInstructor()" data-bs-dismiss="modal" disabled>
+                            Connect 
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-bluetooth" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="m8.543 3.948 1.316 1.316L8.543 6.58V3.948Zm0 8.104 1.316-1.316L8.543 9.42v2.632Zm-1.41-4.043L4.275 5.133l.827-.827L7.377 6.58V1.128l4.137 4.136L8.787 8.01l2.745 2.745-4.136 4.137V9.42l-2.294 2.274-.827-.827L7.133 8.01ZM7.903 16c3.498 0 5.904-1.655 5.904-8.01 0-6.335-2.406-7.99-5.903-7.99C4.407 0 2 1.655 2 8.01 2 14.344 4.407 16 7.904 16Z"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
 
@@ -196,7 +204,7 @@
 
     <!-- <script src="https://cdn.jsdelivr.net/gh/Rakhmadi/RdataTB@master/dist/index.js"></script> -->
     <script src="js/RDataTB.js" ></script>
-      <script src="js/bluetooth.js"></script>
+    <script src="js/bluetooth.js"></script>
     <script src="js/header.js"></script>
 
     <script>
@@ -323,7 +331,7 @@
 
                     const table = document.getElementById('courses-table')
                     if(data.days.length != 0) {
-                        if(data.is_instructor) {
+                        if(data.is_instructor  || true) {
                             temp_days = ""
                             data.days.forEach((item) => {temp_days+=`<th>${item}</th>`})
                             data["last"] = data.days[data.days.length-1]
@@ -383,7 +391,7 @@
 
         getImages = async () => {
             const date = new Date();
-            const res = await fetch(`/temp/status_${window.course}_${date.getFullYear()}-${date.getMonth() < 9 ? "0" : ""}${date.getMonth()+1}-${date.getDate() < 10 ? "0": ""}${date.getDate()}.json`)
+            const res = await fetch(`/temp/status_${window.course}_${date.getFullYear()}-${date.getMonth() < 9 ? "0" : ""}${date.getMonth()+1}-${date.getDate() < 10 ? "0": ""}${date.getDate()}.json?nocache=123`)
                                 .catch(err => console.log(err))
             
             // const res = await fetch(`/temp/status_${window.course}_${date.getFullYear()}-${date.getMonth() < 9 ? "0" : ""}${date.getMonth()+1}-${date.getDate() < 10 ? "0": ""}${17}.json`)

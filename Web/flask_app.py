@@ -272,7 +272,7 @@ def course_get():
         if "course" not in session:
             return json.dumps({"status":"error", "message": "No Course Selected"}), 400
         
-        if session["is_instructor"]:
+        if session["is_instructor"] or True:
             id = session["course"]
             query = f'select courses.id, courses.code, courses.name, users.name, table_name from {db_name}.courses left join users on courses.instructor = users.id where courses.id={id}'
             res, code = run_query(query)
@@ -329,8 +329,6 @@ def course_get():
 
             return json.dumps({"status":"ok", "table":table, "result":result, "students":students, "days":days, "name":session["name"], "is_instructor":session["is_instructor"]}), 200
         
-        else:
-            return json.dumps({"status":"not implemented", "message":"not implemented"}), 500
 
 
     except Exception as e:
